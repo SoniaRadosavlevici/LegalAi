@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #0A0B0E;
+    color: #ffffff;
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background-color: #A8874A;
+    color: #0A0B0E;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0D0F14;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #252B38;
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .uppercase-label {
+    @apply text-xs font-medium tracking-luxury uppercase text-gray-400;
+  }
+
+  .gold-text {
+    @apply text-bronze;
+  }
+
+  .card {
+    @apply bg-navy-700 border border-white/5 rounded-lg;
+  }
+
+  .contract-watermark {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .contract-watermark::after {
+    content: 'DRAFT — LEGALAI FREE PLAN';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-35deg);
+    font-size: 48px;
+    font-weight: 700;
+    color: rgba(168, 135, 74, 0.12);
+    pointer-events: none;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+    z-index: 10;
+    user-select: none;
+  }
+
+  @media print {
+    .no-print { display: none !important; }
+    body { background: white; color: black; }
+    .contract-content {
+      font-family: 'Times New Roman', serif;
+      color: black;
+      font-size: 12pt;
+      line-height: 1.6;
+    }
+  }
+}
