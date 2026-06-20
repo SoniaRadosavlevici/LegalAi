@@ -55,6 +55,7 @@ export default function ContractView() {
   const [loading, setLoading] = useState(true)
   const [reviewSending, setReviewSending] = useState(false)
   const [reviewSent, setReviewSent] = useState(false)
+  const [showReviewConfirm, setShowReviewConfirm] = useState(false)
   const [finalizingDone, setFinalizingDone] = useState(false)
   const [error, setError] = useState('')
 
@@ -149,16 +150,16 @@ export default function ContractView() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 flex-shrink-0">
-            {/* Review by Lawyer — always visible */}
+            {/* Have a Lawyer Review This — always visible */}
             <Button
               variant="outline"
               size="sm"
-              onClick={handleReviewByLawyer}
+              onClick={() => setShowReviewConfirm(true)}
               loading={reviewSending}
               disabled={reviewSent}
               className="gap-1.5 text-xs"
             >
-              {reviewSent ? <><Check size={12} /> Sent for Review</> : <><Send size={12} /> Review by Lawyer</>}
+              {reviewSent ? <><Check size={12} /> Sent for Review</> : <><Send size={12} /> Have a Lawyer Review This</>}
             </Button>
 
             {contract.status !== 'final' && (
@@ -256,6 +257,34 @@ export default function ContractView() {
       </main>
 
       <Footer />
+
+      {showReviewConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+          <div className="bg-navy-700 border border-white/10 rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h2 className="font-serif text-xl text-white mb-3">Request Lawyer Review</h2>
+            <p className="text-sm text-gray-400 leading-relaxed mb-6">
+              Your contract will be sent to a lawyer for review. You will receive a quote within 48 hours.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowReviewConfirm(false)}
+                disabled={reviewSending}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                loading={reviewSending}
+                onClick={() => { setShowReviewConfirm(false); handleReviewByLawyer() }}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

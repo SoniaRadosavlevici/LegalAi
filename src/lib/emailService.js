@@ -26,6 +26,21 @@ export async function sendLawyerContactEmail({ lawyerName, lawyerProvince, sende
   })
 }
 
+export async function sendLawyerDraftReviewEmail({ senderEmail }) {
+  return sendEmail({
+    to: CONTACT_EMAIL,
+    subject: `Lawyer Review Request — Contract Draft`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+        <h2 style="color:#A8874A">Lawyer Review Request</h2>
+        <p>A user has requested a lawyer review their contract draft.</p>
+        <p><strong>User Email:</strong> ${senderEmail}</p>
+        <p>Please contact this user within 48 hours with a review quote.</p>
+      </div>
+    `,
+  })
+}
+
 export async function sendContractReviewEmail({ contractTitle, contractContent, senderName, senderEmail, userPlan }) {
   return sendEmail({
     to: CONTACT_EMAIL,
