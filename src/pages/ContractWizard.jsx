@@ -1,14 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { generateContract, extractStructuredData } from '../lib/contractTemplates'
-import { tr, SUPPORTED_LANGUAGES } from '../lib/translations'
 import Navbar from '../components/layout/Navbar'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-import { Check, ChevronRight, ChevronLeft, FileText, AlertTriangle, Globe } from '../components/icons/Icons'
+import { Check, ChevronRight, ChevronLeft, FileText, AlertTriangle } from '../components/icons/Icons'
 
 const CONTRACT_TYPES = [
   'Employment', 'NDA', 'Service Agreement', 'Consulting',
@@ -39,6 +38,15 @@ const BENEFITS_OPTIONS = [
   'Parental leave top-up', 'Stock options / equity',
 ]
 
+const STEPS = [
+  'Contract Type',
+  'Jurisdiction',
+  'Your Details',
+  'Other Party',
+  'Terms',
+  'Review & Save',
+]
+
 const defaultParty = { name: '', company: '', address: '', city: '', province: '', postalCode: '', email: '', phone: '', title: '' }
 const defaultTerms = {
   startDate: '', endDate: '', position: '', salary: '', salaryPeriod: 'annual',
@@ -49,46 +57,19 @@ const defaultTerms = {
   territory: '', businessDescription: '',
 }
 
-function LanguageToggle({ lang, onChange }) {
-  return (
-    <div className="flex items-center gap-1 bg-navy-800 border border-white/10 rounded p-0.5">
-      <Globe size={12} className="text-gray-500 ml-1.5" />
-      {SUPPORTED_LANGUAGES.map(l => (
-        <button
-          key={l.code}
-          onClick={() => onChange(l.code)}
-          className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
-            lang === l.code
-              ? 'bg-bronze text-navy font-semibold'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          {l.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 export default function ContractWizard() {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [step, setStep] = useState(0)
-  const [lang, setLang] = useState('en')
   const [contractType, setContractType] = useState(searchParams.get('type') || '')
   const [jurisdiction, setJurisdiction] = useState('')
   const [partyA, setPartyA] = useState({ ...defaultParty })
   const [partyB, setPartyB] = useState({ ...defaultParty })
   const [terms, setTerms] = useState({ ...defaultTerms })
   const [generatedContent, setGeneratedContent] = useState('')
-  const [displayContent, setDisplayContent] = useState('')
-  const [translating, setTranslating] = useState(false)
-  const [translateError, setTranslateError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-
-  const t = (key) => tr(lang, key)
 
   const updatePartyA = (key, val) => setPartyA(p => ({ ...p, [key]: val }))
   const updatePartyB = (key, val) => setPartyB(p => ({ ...p, [key]: val }))
@@ -101,47 +82,10 @@ export default function ContractWizard() {
     }))
   }
 
-  async function applyLanguage(content, targetLang) {
-    if (targetLang === 'en') {
-      setDisplayContent(content)
-      return
-    }
-    setTranslating(true)
-    setTranslateError(false)
-    try {
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: content, targetLang }),
-      })
-      const data = await res.json()
-      if (data.translated) {
-        setDisplayContent(data.translated)
-      } else {
-        setTranslateError(true)
-        setDisplayContent(content)
-      }
-    } catch {
-      setTranslateError(true)
-      setDisplayContent(content)
-    } finally {
-      setTranslating(false)
-    }
-  }
-
-  async function handleLangChange(newLang) {
-    setLang(newLang)
-    if (step === 5 && generatedContent) {
-      await applyLanguage(generatedContent, newLang)
-    }
-  }
-
-  const goNext = async () => {
+  const goNext = () => {
     if (step === 4) {
       const data = { contractType, jurisdiction, partyA, partyB, terms }
-      const content = generateContract(data)
-      setGeneratedContent(content)
-      await applyLanguage(content, lang)
+      setGeneratedContent(generateContract(data))
     }
     setStep(s => Math.min(s + 1, 5))
     window.scrollTo(0, 0)
@@ -169,7 +113,7 @@ export default function ContractWizard() {
       title,
       type: contractType,
       jurisdiction,
-      content: generatedContent, // always save the original English
+      content: generatedContent,
       structured_data: structuredData,
       status: 'draft',
       category: contractType,
@@ -183,26 +127,7 @@ export default function ContractWizard() {
     }
   }
 
-  const STEPS = [
-    t('stepContractType'),
-    t('stepJurisdiction'),
-    t('stepYourDetails'),
-    t('stepOtherParty'),
-    t('stepTerms'),
-    t('stepReviewSave'),
-  ]
-
   const selectedJurisdiction = JURISDICTIONS.find(j => j.name === jurisdiction)
-
-  const partyARole =
-    contractType === 'Employment' ? t('roleEmployer') :
-    contractType === 'Rental' ? t('roleLandlord') :
-    contractType === 'NDA' ? t('roleDisclosingParty') : t('roleYourInfo')
-
-  const partyBRole =
-    contractType === 'Employment' ? t('roleEmployee') :
-    contractType === 'Rental' ? t('roleTenant') :
-    contractType === 'NDA' ? t('roleReceivingParty') : t('roleOtherParty')
 
   return (
     <div className="min-h-screen bg-navy font-sans">
@@ -248,8 +173,8 @@ export default function ContractWizard() {
             {/* Step 0: Contract Type */}
             {step === 0 && (
               <div>
-                <h2 className="font-serif text-3xl text-white mb-2">{t('selectContractTypeTitle')}</h2>
-                <p className="text-gray-500 text-sm mb-8">{t('selectContractTypeDesc')}</p>
+                <h2 className="font-serif text-3xl text-white mb-2">Select Contract Type</h2>
+                <p className="text-gray-500 text-sm mb-8">Choose the type of contract you need to draft.</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {CONTRACT_TYPES.map(type => (
                     <button
@@ -271,8 +196,8 @@ export default function ContractWizard() {
             {/* Step 1: Jurisdiction */}
             {step === 1 && (
               <div>
-                <h2 className="font-serif text-3xl text-white mb-2">{t('selectJurisdictionTitle')}</h2>
-                <p className="text-gray-500 text-sm mb-8">{t('selectJurisdictionDesc')}</p>
+                <h2 className="font-serif text-3xl text-white mb-2">Select Jurisdiction</h2>
+                <p className="text-gray-500 text-sm mb-8">Select the province or territory where this contract will be governed.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {JURISDICTIONS.map(j => (
                     <button
@@ -309,18 +234,22 @@ export default function ContractWizard() {
             {/* Step 2: Your Details (Party A) */}
             {step === 2 && (
               <div>
-                <h2 className="font-serif text-3xl text-white mb-2">{t('yourDetailsTitle')}</h2>
-                <p className="text-gray-500 text-sm mb-8">{partyARole}</p>
+                <h2 className="font-serif text-3xl text-white mb-2">Your Details</h2>
+                <p className="text-gray-500 text-sm mb-8">
+                  {contractType === 'Employment' ? 'As the Employer' :
+                   contractType === 'Rental' ? 'As the Landlord' :
+                   contractType === 'NDA' ? 'As the Disclosing Party' : 'Your information'}
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <Input label={t('fullName')} value={partyA.name} onChange={e => updatePartyA('name', e.target.value)} placeholder="Jane Smith" required />
-                  <Input label={t('company')} value={partyA.company} onChange={e => updatePartyA('company', e.target.value)} placeholder="Acme Corp" />
-                  <Input label={t('titleRole')} value={partyA.title} onChange={e => updatePartyA('title', e.target.value)} placeholder="CEO" />
-                  <Input label={t('email')} type="email" value={partyA.email} onChange={e => updatePartyA('email', e.target.value)} placeholder="jane@example.com" required />
-                  <Input label={t('phone')} value={partyA.phone} onChange={e => updatePartyA('phone', e.target.value)} placeholder="+1 (416) 555-0100" />
-                  <Input label={t('streetAddress')} value={partyA.address} onChange={e => updatePartyA('address', e.target.value)} placeholder="123 Main Street" />
-                  <Input label={t('city')} value={partyA.city} onChange={e => updatePartyA('city', e.target.value)} placeholder="Toronto" />
-                  <Input label={t('province')} value={partyA.province} onChange={e => updatePartyA('province', e.target.value)} placeholder="Ontario" />
-                  <Input label={t('postalCode')} value={partyA.postalCode} onChange={e => updatePartyA('postalCode', e.target.value)} placeholder="M5H 2N2" />
+                  <Input label="Full Name" value={partyA.name} onChange={e => updatePartyA('name', e.target.value)} placeholder="Jane Smith" required />
+                  <Input label="Company (optional)" value={partyA.company} onChange={e => updatePartyA('company', e.target.value)} placeholder="Acme Corp" />
+                  <Input label="Title / Role (optional)" value={partyA.title} onChange={e => updatePartyA('title', e.target.value)} placeholder="CEO" />
+                  <Input label="Email" type="email" value={partyA.email} onChange={e => updatePartyA('email', e.target.value)} placeholder="jane@example.com" required />
+                  <Input label="Phone (optional)" value={partyA.phone} onChange={e => updatePartyA('phone', e.target.value)} placeholder="+1 (416) 555-0100" />
+                  <Input label="Street Address" value={partyA.address} onChange={e => updatePartyA('address', e.target.value)} placeholder="123 Main Street" />
+                  <Input label="City" value={partyA.city} onChange={e => updatePartyA('city', e.target.value)} placeholder="Toronto" />
+                  <Input label="Province" value={partyA.province} onChange={e => updatePartyA('province', e.target.value)} placeholder="Ontario" />
+                  <Input label="Postal Code" value={partyA.postalCode} onChange={e => updatePartyA('postalCode', e.target.value)} placeholder="M5H 2N2" />
                 </div>
               </div>
             )}
@@ -328,17 +257,21 @@ export default function ContractWizard() {
             {/* Step 3: Other Party (Party B) */}
             {step === 3 && (
               <div>
-                <h2 className="font-serif text-3xl text-white mb-2">{t('otherPartyTitle')}</h2>
-                <p className="text-gray-500 text-sm mb-8">{partyBRole}</p>
+                <h2 className="font-serif text-3xl text-white mb-2">Other Party</h2>
+                <p className="text-gray-500 text-sm mb-8">
+                  {contractType === 'Employment' ? 'The Employee\'s information' :
+                   contractType === 'Rental' ? 'The Tenant\'s information' :
+                   contractType === 'NDA' ? 'The Receiving Party\'s information' : 'The other party\'s information'}
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <Input label={t('fullName')} value={partyB.name} onChange={e => updatePartyB('name', e.target.value)} placeholder="John Doe" required />
-                  <Input label={t('company')} value={partyB.company} onChange={e => updatePartyB('company', e.target.value)} placeholder="Company Ltd." />
-                  <Input label={t('email')} type="email" value={partyB.email} onChange={e => updatePartyB('email', e.target.value)} placeholder="john@example.com" />
-                  <Input label={t('phone')} value={partyB.phone} onChange={e => updatePartyB('phone', e.target.value)} placeholder="+1 (416) 555-0101" />
-                  <Input label={t('streetAddress')} value={partyB.address} onChange={e => updatePartyB('address', e.target.value)} placeholder="456 King Street" />
-                  <Input label={t('city')} value={partyB.city} onChange={e => updatePartyB('city', e.target.value)} placeholder="Toronto" />
-                  <Input label={t('province')} value={partyB.province} onChange={e => updatePartyB('province', e.target.value)} placeholder="Ontario" />
-                  <Input label={t('postalCode')} value={partyB.postalCode} onChange={e => updatePartyB('postalCode', e.target.value)} placeholder="M5V 1A1" />
+                  <Input label="Full Name" value={partyB.name} onChange={e => updatePartyB('name', e.target.value)} placeholder="John Doe" required />
+                  <Input label="Company (optional)" value={partyB.company} onChange={e => updatePartyB('company', e.target.value)} placeholder="Company Ltd." />
+                  <Input label="Email (optional)" type="email" value={partyB.email} onChange={e => updatePartyB('email', e.target.value)} placeholder="john@example.com" />
+                  <Input label="Phone (optional)" value={partyB.phone} onChange={e => updatePartyB('phone', e.target.value)} placeholder="+1 (416) 555-0101" />
+                  <Input label="Street Address" value={partyB.address} onChange={e => updatePartyB('address', e.target.value)} placeholder="456 King Street" />
+                  <Input label="City" value={partyB.city} onChange={e => updatePartyB('city', e.target.value)} placeholder="Toronto" />
+                  <Input label="Province" value={partyB.province} onChange={e => updatePartyB('province', e.target.value)} placeholder="Ontario" />
+                  <Input label="Postal Code" value={partyB.postalCode} onChange={e => updatePartyB('postalCode', e.target.value)} placeholder="M5V 1A1" />
                 </div>
               </div>
             )}
@@ -346,16 +279,16 @@ export default function ContractWizard() {
             {/* Step 4: Terms */}
             {step === 4 && (
               <div>
-                <h2 className="font-serif text-3xl text-white mb-2">{t('contractTermsTitle')}</h2>
-                <p className="text-gray-500 text-sm mb-8">{t('contractTermsDesc')} {contractType}.</p>
+                <h2 className="font-serif text-3xl text-white mb-2">Contract Terms</h2>
+                <p className="text-gray-500 text-sm mb-8">Specify the terms for your {contractType}.</p>
 
                 <div className="space-y-8">
                   {/* Common dates */}
                   <div>
-                    <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionDates')}</h3>
+                    <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Dates</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <Input label={t('startDate')} type="date" value={terms.startDate} onChange={e => updateTerms('startDate', e.target.value)} required />
-                      <Input label={t('endDate')} type="date" value={terms.endDate} onChange={e => updateTerms('endDate', e.target.value)} />
+                      <Input label="Start Date" type="date" value={terms.startDate} onChange={e => updateTerms('startDate', e.target.value)} required />
+                      <Input label="End Date (leave blank for indefinite)" type="date" value={terms.endDate} onChange={e => updateTerms('endDate', e.target.value)} />
                     </div>
                   </div>
 
@@ -363,21 +296,21 @@ export default function ContractWizard() {
                   {contractType === 'Employment' && (
                     <>
                       <div>
-                        <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionPositionComp')}</h3>
+                        <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Position & Compensation</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          <Input label={t('jobTitle')} value={terms.position} onChange={e => updateTerms('position', e.target.value)} placeholder="Software Engineer" />
+                          <Input label="Job Title / Position" value={terms.position} onChange={e => updateTerms('position', e.target.value)} placeholder="Software Engineer" />
                           <div className="flex gap-3">
-                            <Input label={t('salaryWage')} type="number" value={terms.salary} onChange={e => updateTerms('salary', e.target.value)} placeholder="75000" className="flex-1" />
+                            <Input label="Salary / Wage" type="number" value={terms.salary} onChange={e => updateTerms('salary', e.target.value)} placeholder="75000" className="flex-1" />
                             <div className="flex flex-col gap-1.5">
-                              <label className="text-xs font-medium tracking-luxury uppercase text-gray-400">{t('period')}</label>
+                              <label className="text-xs font-medium tracking-luxury uppercase text-gray-400">Period</label>
                               <select
                                 value={terms.salaryPeriod}
                                 onChange={e => updateTerms('salaryPeriod', e.target.value)}
                                 className="bg-navy-700 border border-white/10 rounded px-3 py-3 text-sm text-white focus:outline-none focus:border-bronze/60"
                               >
-                                <option value="annual">{t('optAnnual')}</option>
-                                <option value="monthly">{t('optMonthly')}</option>
-                                <option value="hourly">{t('optHourly')}</option>
+                                <option value="annual">Annual</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="hourly">Hourly</option>
                               </select>
                             </div>
                           </div>
@@ -385,18 +318,18 @@ export default function ContractWizard() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionEmploymentCond')}</h3>
+                        <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Employment Conditions</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          <Input label={t('probationPeriod')} type="number" value={terms.probationPeriod} onChange={e => updateTerms('probationPeriod', e.target.value)} min={0} max={12} />
-                          <Input label={t('terminationNoticeWeeks')} type="number" value={terms.terminationNotice} onChange={e => updateTerms('terminationNotice', e.target.value)} min={0} />
-                          <Input label={t('weeklyHours')} type="number" value={terms.workHours} onChange={e => updateTerms('workHours', e.target.value)} min={1} max={80} />
-                          <Input label={t('workDays')} value={terms.workDays} onChange={e => updateTerms('workDays', e.target.value)} placeholder="Monday to Friday" />
-                          <Input label={t('annualVacation')} type="number" value={terms.vacation} onChange={e => updateTerms('vacation', e.target.value)} min={2} />
+                          <Input label="Probation Period (months)" type="number" value={terms.probationPeriod} onChange={e => updateTerms('probationPeriod', e.target.value)} min={0} max={12} />
+                          <Input label="Termination Notice (weeks)" type="number" value={terms.terminationNotice} onChange={e => updateTerms('terminationNotice', e.target.value)} min={0} />
+                          <Input label="Weekly Hours" type="number" value={terms.workHours} onChange={e => updateTerms('workHours', e.target.value)} min={1} max={80} />
+                          <Input label="Work Days" value={terms.workDays} onChange={e => updateTerms('workDays', e.target.value)} placeholder="Monday to Friday" />
+                          <Input label="Annual Vacation (weeks)" type="number" value={terms.vacation} onChange={e => updateTerms('vacation', e.target.value)} min={2} />
                         </div>
                       </div>
 
                       <div>
-                        <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionBenefits')}</h3>
+                        <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Benefits</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {BENEFITS_OPTIONS.map(b => (
                             <button
@@ -422,10 +355,10 @@ export default function ContractWizard() {
                   {/* NDA-specific */}
                   {contractType === 'NDA' && (
                     <div>
-                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionConfidentiality')}</h3>
+                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Confidentiality Terms</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <Input
-                          label={t('confidentialityPeriod')}
+                          label="Confidentiality Period (years)"
                           type="number"
                           value={terms.confidentialityPeriod}
                           onChange={e => updateTerms('confidentialityPeriod', e.target.value)}
@@ -439,45 +372,45 @@ export default function ContractWizard() {
                   {/* Service / Consulting / Freelance */}
                   {['Service Agreement', 'Consulting', 'Freelance'].includes(contractType) && (
                     <div>
-                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionScopePayment')}</h3>
+                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Scope & Payment</h3>
                       <div className="space-y-5">
                         <Input
-                          label={t('projectDesc')}
+                          label="Project / Scope Description"
                           type="textarea"
                           value={terms.projectDescription}
                           onChange={e => updateTerms('projectDescription', e.target.value)}
-                          placeholder={t('projectDescPlaceholder')}
+                          placeholder="Describe the services or project in detail..."
                           rows={4}
                         />
                         <Input
-                          label={t('deliverables')}
+                          label="Deliverables"
                           type="textarea"
                           value={terms.deliverables}
                           onChange={e => updateTerms('deliverables', e.target.value)}
-                          placeholder={t('deliverablesPlaceholder')}
+                          placeholder="List the specific deliverables..."
                           rows={3}
                         />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                           <Input
-                            label={t('paymentAmount')}
+                            label="Payment Amount (CAD)"
                             type="number"
                             value={terms.paymentAmount}
                             onChange={e => updateTerms('paymentAmount', e.target.value)}
                             placeholder="5000"
                           />
                           <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium tracking-luxury uppercase text-gray-400">{t('paymentTermsLabel')}</label>
+                            <label className="text-xs font-medium tracking-luxury uppercase text-gray-400">Payment Terms</label>
                             <select
                               value={terms.paymentTerms}
                               onChange={e => updateTerms('paymentTerms', e.target.value)}
                               className="bg-navy-700 border border-white/10 rounded px-4 py-3 text-sm text-white focus:outline-none focus:border-bronze/60"
                             >
-                              <option value="net15">{t('optNet15')}</option>
-                              <option value="net30">{t('optNet30')}</option>
-                              <option value="net60">{t('optNet60')}</option>
-                              <option value="upfront">{t('optUpfront')}</option>
-                              <option value="split">{t('optSplit')}</option>
-                              <option value="completion">{t('optCompletion')}</option>
+                              <option value="net15">Net 15 days</option>
+                              <option value="net30">Net 30 days</option>
+                              <option value="net60">Net 60 days</option>
+                              <option value="upfront">100% Upfront</option>
+                              <option value="split">50/50 Split</option>
+                              <option value="completion">Upon Completion</option>
                             </select>
                           </div>
                         </div>
@@ -488,18 +421,18 @@ export default function ContractWizard() {
                   {/* Rental */}
                   {contractType === 'Rental' && (
                     <div>
-                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionRentalTerms')}</h3>
+                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Rental Terms</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <Input
-                          label={t('propertyAddress')}
+                          label="Property Address"
                           value={terms.propertyAddress}
                           onChange={e => updateTerms('propertyAddress', e.target.value)}
-                          placeholder={t('propertyAddressPlaceholder')}
+                          placeholder="123 Maple Avenue, Apt 4B"
                           className="md:col-span-2"
                         />
-                        <Input label={t('monthlyRent')} type="number" value={terms.monthlyRent} onChange={e => updateTerms('monthlyRent', e.target.value)} placeholder="2000" />
-                        <Input label={t('securityDeposit')} type="number" value={terms.securityDeposit} onChange={e => updateTerms('securityDeposit', e.target.value)} placeholder="2000" />
-                        <Input label={t('terminationNoticeDays')} type="number" value={terms.terminationNotice} onChange={e => updateTerms('terminationNotice', e.target.value)} placeholder="60" />
+                        <Input label="Monthly Rent (CAD)" type="number" value={terms.monthlyRent} onChange={e => updateTerms('monthlyRent', e.target.value)} placeholder="2000" />
+                        <Input label="Security Deposit (CAD)" type="number" value={terms.securityDeposit} onChange={e => updateTerms('securityDeposit', e.target.value)} placeholder="2000" />
+                        <Input label="Termination Notice (days)" type="number" value={terms.terminationNotice} onChange={e => updateTerms('terminationNotice', e.target.value)} placeholder="60" />
                       </div>
                     </div>
                   )}
@@ -507,16 +440,16 @@ export default function ContractWizard() {
                   {/* Non-Compete */}
                   {contractType === 'Non-Compete' && (
                     <div>
-                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionNonCompete')}</h3>
+                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Non-Competition Terms</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <Input label={t('restrictedPeriod')} type="number" value={terms.nonCompetePeriod} onChange={e => updateTerms('nonCompetePeriod', e.target.value)} min={1} max={24} />
-                        <Input label={t('geographicTerritory')} value={terms.territory} onChange={e => updateTerms('territory', e.target.value)} placeholder={t('geographicTerritoryPlaceholder')} />
+                        <Input label="Restricted Period (months)" type="number" value={terms.nonCompetePeriod} onChange={e => updateTerms('nonCompetePeriod', e.target.value)} min={1} max={24} />
+                        <Input label="Geographic Territory" value={terms.territory} onChange={e => updateTerms('territory', e.target.value)} placeholder="Province of Ontario" />
                         <Input
-                          label={t('competitiveBusinessDesc')}
+                          label="Competitive Business Description"
                           type="textarea"
                           value={terms.businessDescription}
                           onChange={e => updateTerms('businessDescription', e.target.value)}
-                          placeholder={t('competitiveBusinessDescPlaceholder')}
+                          placeholder="Describe the type of competitive business..."
                           className="md:col-span-2"
                         />
                       </div>
@@ -526,18 +459,18 @@ export default function ContractWizard() {
                   {/* Partnership */}
                   {contractType === 'Partnership' && (
                     <div>
-                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">{t('sectionPartnership')}</h3>
+                      <h3 className="text-xs uppercase tracking-luxury text-gray-500 mb-4">Partnership Terms</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <Input
-                          label={t('businessPurpose')}
+                          label="Business Purpose"
                           type="textarea"
                           value={terms.projectDescription}
                           onChange={e => updateTerms('projectDescription', e.target.value)}
-                          placeholder={t('businessPurposePlaceholder')}
+                          placeholder="Describe the Partnership's business..."
                           className="md:col-span-2"
                         />
-                        <Input label={t('profitShareA')} type="number" value={terms.profitSharingA} onChange={e => updateTerms('profitSharingA', e.target.value)} placeholder="50" min={0} max={100} />
-                        <Input label={t('profitShareB')} type="number" value={terms.profitSharingB} onChange={e => updateTerms('profitSharingB', e.target.value)} placeholder="50" min={0} max={100} />
+                        <Input label="Profit Share — Party A (%)" type="number" value={terms.profitSharingA} onChange={e => updateTerms('profitSharingA', e.target.value)} placeholder="50" min={0} max={100} />
+                        <Input label="Profit Share — Party B (%)" type="number" value={terms.profitSharingB} onChange={e => updateTerms('profitSharingB', e.target.value)} placeholder="50" min={0} max={100} />
                       </div>
                     </div>
                   )}
@@ -548,14 +481,13 @@ export default function ContractWizard() {
             {/* Step 5: Review & Save */}
             {step === 5 && (
               <div>
-                <div className="flex items-start justify-between gap-4 mb-6">
+                <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="font-serif text-3xl text-white mb-1">{t('yourContractTitle')}</h2>
+                    <h2 className="font-serif text-3xl text-white mb-1">Your Contract</h2>
                     <p className="text-sm text-gray-500">
                       {contractType} — {jurisdiction} — Generated {new Date().toLocaleDateString('en-CA')}
                     </p>
                   </div>
-                  <LanguageToggle lang={lang} onChange={handleLangChange} />
                 </div>
 
                 {error && (
@@ -564,36 +496,23 @@ export default function ContractWizard() {
                   </div>
                 )}
 
-                {translateError && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded px-4 py-3 text-sm text-amber-400 mb-4">
-                    {t('translateError')}
-                  </div>
-                )}
-
                 <div className={`relative bg-navy-700 border border-white/5 rounded-lg p-6 md:p-8 mb-6
                   ${profile?.plan === 'free' ? 'contract-watermark' : ''}`}
                   onCopy={profile?.plan === 'free' ? e => e.preventDefault() : undefined}
                 >
-                  {translating ? (
-                    <div className="flex items-center gap-3 py-8 justify-center text-gray-500">
-                      <div className="w-4 h-4 border-2 border-bronze border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm">{t('translating')}</span>
-                    </div>
-                  ) : (
-                    <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed contract-content">
-                      {displayContent}
-                    </pre>
-                  )}
+                  <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed contract-content">
+                    {generatedContent}
+                  </pre>
                 </div>
 
                 {profile?.plan === 'free' && (
                   <div className="border border-bronze/20 bg-bronze/5 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <AlertTriangle size={16} className="text-bronze flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm text-bronze font-medium">{t('freePlanTitle')}</p>
+                      <p className="text-sm text-bronze font-medium">Free Plan — Watermarked Preview</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {t('freePlanDesc')}
-                        <a href="/pricing" className="text-bronze ml-1 hover:text-bronze-light transition-colors">{t('viewPlans')}</a>
+                        Upgrade to Starter or Pro to remove the watermark and export as PDF or Word.
+                        <a href="/pricing" className="text-bronze ml-1 hover:text-bronze-light transition-colors">View plans</a>
                       </p>
                     </div>
                   </div>
@@ -601,10 +520,10 @@ export default function ContractWizard() {
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button onClick={saveContract} loading={saving} className="flex-1">
-                    {t('saveDashboard')}
+                    Save to Dashboard
                   </Button>
                   <Button variant="outline" onClick={() => navigate('/dashboard')}>
-                    {t('saveLater')}
+                    Save for Later
                   </Button>
                 </div>
               </div>
@@ -617,10 +536,10 @@ export default function ContractWizard() {
           <div className="flex justify-between mt-10 pt-6 border-t border-white/5">
             <Button variant="ghost" onClick={goBack} disabled={step === 0} className="gap-1.5">
               <ChevronLeft size={16} />
-              {t('back')}
+              Back
             </Button>
             <Button onClick={goNext} disabled={!canProceed()} className="gap-1.5">
-              {step === 4 ? t('generateContract') : t('continue')}
+              {step === 4 ? 'Generate Contract' : 'Continue'}
               <ChevronRight size={16} />
             </Button>
           </div>
