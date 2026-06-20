@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { sendContractReviewEmail } from '../lib/emailService'
+import { SUPPORTED_LANGUAGES } from '../lib/translations'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
 import Button from '../components/ui/Button'
@@ -58,6 +59,10 @@ export default function ContractView() {
   const [showReviewConfirm, setShowReviewConfirm] = useState(false)
   const [finalizingDone, setFinalizingDone] = useState(false)
   const [error, setError] = useState('')
+  const [lang, setLang] = useState('en')
+  const [displayContent, setDisplayContent] = useState('')
+  const [translating, setTranslating] = useState(false)
+  const [translateError, setTranslateError] = useState(false)
 
   const isPaid = profile?.plan === 'starter' || profile?.plan === 'pro'
 
@@ -66,10 +71,33 @@ export default function ContractView() {
     supabase.from('contracts').select('*').eq('id', id).eq('user_id', user.id).single()
       .then(({ data, error: err }) => {
         if (err || !data) navigate('/dashboard')
-        else setContract(data)
+        else { setContract(data); setDisplayContent(data.content) }
         setLoading(false)
       })
   }, [id, user])
+
+  async function handleLangChange(newLang) {
+    setLang(newLang)
+    if (!contract) return
+    if (newLang === 'en') { setDisplayContent(contract.content); return }
+    setTranslating(true)
+    setTranslateError(false)
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: contract.content, targetLang: newLang }),
+      })
+      const data = await res.json()
+      if (data.translated) setDisplayContent(data.translated)
+      else { setTranslateError(true); setDisplayContent(contract.content) }
+    } catch {
+      setTranslateError(true)
+      setDisplayContent(contract.content)
+    } finally {
+      setTranslating(false)
+    }
+  }
 
   const handleReviewByLawyer = async () => {
     if (!contract) return
@@ -149,7 +177,22 @@ export default function ContractView() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap gap-2 flex-shrink-0">
+          <div className="flex flex-wrap gap-2 flex-shrink-0 items-center">
+            {/* Language toggle */}
+            <div className="flex items-center gap-1 bg-navy-800 border border-white/10 rounded p-0.5 mr-1">
+              <Globe size={12} className="text-gray-500 ml-1.5" />
+              {SUPPORTED_LANGUAGES.map(l => (
+                <button
+                  key={l.code}
+                  onClick={() => handleLangChange(l.code)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                    lang === l.code ? 'bg-bronze text-navy font-semibold' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
             {/* Have a Lawyer Review This — always visible */}
             <Button
               variant="outline"
@@ -224,15 +267,28 @@ export default function ContractView() {
           </div>
         )}
 
+        {translateError && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-4 text-sm text-amber-400">
+            Translation failed — showing original English.
+          </div>
+        )}
+
         {/* Contract Content */}
         <div id="print-area" className={`bg-navy-700 border border-white/5 rounded-lg p-6 md:p-10
           ${!isPaid ? 'contract-watermark' : ''}`}
           onCopy={!isPaid ? e => e.preventDefault() : undefined}
           style={!isPaid ? { userSelect: 'none' } : {}}
         >
-          <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed contract-content">
-            {contract.content}
-          </pre>
+          {translating ? (
+            <div className="flex items-center gap-3 py-10 justify-center text-gray-500">
+              <div className="w-4 h-4 border-2 border-bronze border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Translating…</span>
+            </div>
+          ) : (
+            <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed contract-content">
+              {displayContent}
+            </pre>
+          )}
         </div>
 
         {/* Structured data for employment */}
