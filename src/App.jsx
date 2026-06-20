@@ -10,6 +10,7 @@ import DraftBot from './pages/DraftBot'
 import FindLawyer from './pages/FindLawyer'
 import Pricing from './pages/Pricing'
 import Checkout from './pages/Checkout'
+import ResetPassword from './pages/ResetPassword'
 
 function ProtectedRoute() {
   const { user, loading } = useAuth()
@@ -51,6 +52,8 @@ export default function App() {
             <Route path="/contract/new" element={<DraftBot />} />
             <Route path="/contract/:id" element={<ContractView />} />
           </Route>
+
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
