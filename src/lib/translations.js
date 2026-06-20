@@ -209,7 +209,7 @@ const dict = {
     sectionNonCompete: 'Conditions de non-concurrence',
     restrictedPeriod: 'Période de restriction (mois)',
     geographicTerritory: 'Territoire géographique',
-    geographicTerritoryPlaceholder: 'Province de l'Ontario',
+    geographicTerritoryPlaceholder: "Province de l'Ontario",
     competitiveBusinessDesc: "Description de l'activité concurrente",
     competitiveBusinessDescPlaceholder: "Décrivez le type d'activité concurrente...",
 
