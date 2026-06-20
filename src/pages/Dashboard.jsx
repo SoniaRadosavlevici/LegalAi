@@ -8,7 +8,7 @@ import Footer from '../components/layout/Footer'
 import Button from '../components/ui/Button'
 import {
   Folder, FileText, Plus, ChevronDown, ChevronRight,
-  Calendar, Globe, AlertTriangle, Users, Briefcase
+  Calendar, Globe, Briefcase
 } from '../components/icons/Icons'
 
 const CATEGORIES = [
@@ -20,98 +20,8 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function ConsistencyChecker({ contracts }) {
-  if (contracts.length < 2) {
-    return (
-      <div className="bg-navy-600/50 border border-white/5 rounded p-4 text-sm text-gray-500 text-center">
-        Add at least 2 employment contracts to enable consistency checking.
-      </div>
-    )
-  }
-
-  const fields = [
-    { key: 'probationPeriod', label: 'Probation Period', unit: 'months' },
-    { key: 'terminationNotice', label: 'Termination Notice', unit: 'weeks' },
-    { key: 'salary', label: 'Salary', unit: 'CAD/yr' },
-    { key: 'vacation', label: 'Vacation', unit: 'weeks' },
-  ]
-
-  const extractVal = (contract, key) => {
-    const sd = contract.structured_data || {}
-    return sd[key]
-  }
-
-  const hasDiscrepancy = (key) => {
-    const vals = contracts.map(c => extractVal(c, key)).filter(v => v !== undefined)
-    if (vals.length < 2) return false
-    return new Set(vals).size > 1
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-white/5">
-            <th className="text-left py-3 pr-4 text-xs uppercase tracking-luxury text-gray-500 font-medium w-36">Field</th>
-            {contracts.map(c => (
-              <th key={c.id} className="text-left py-3 px-4 text-xs text-gray-400 font-medium max-w-[140px]">
-                <span className="truncate block max-w-[130px]">{c.title}</span>
-                <span className="text-gray-600 text-[10px] font-normal">{c.jurisdiction}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {fields.map(field => {
-            const discrepancy = hasDiscrepancy(field.key)
-            return (
-              <tr key={field.key} className={`border-b border-white/5 ${discrepancy ? 'bg-amber-500/5' : ''}`}>
-                <td className="py-3 pr-4">
-                  <div className="flex items-center gap-2">
-                    {discrepancy && <AlertTriangle size={12} className="text-amber-500 flex-shrink-0" />}
-                    <span className={discrepancy ? 'text-amber-400' : 'text-gray-400'}>{field.label}</span>
-                  </div>
-                </td>
-                {contracts.map(c => {
-                  const val = extractVal(c, field.key)
-                  return (
-                    <td key={c.id} className="py-3 px-4">
-                      <span className={`${discrepancy ? 'text-amber-300' : 'text-white'}`}>
-                        {val !== undefined ? `${val} ${field.unit}` : '—'}
-                      </span>
-                    </td>
-                  )
-                })}
-              </tr>
-            )
-          })}
-          <tr>
-            <td className="py-3 pr-4 text-gray-400">Benefits</td>
-            {contracts.map(c => {
-              const benefits = (c.structured_data?.benefits || [])
-              return (
-                <td key={c.id} className="py-3 px-4">
-                  <div className="flex flex-wrap gap-1">
-                    {benefits.length > 0
-                      ? benefits.map(b => (
-                        <span key={b} className="bg-navy-500 text-gray-300 text-[10px] px-2 py-0.5 rounded">{b}</span>
-                      ))
-                      : <span className="text-gray-600">None</span>
-                    }
-                  </div>
-                </td>
-              )
-            })}
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 function CategoryCard({ category, contracts, isOpen, onToggle }) {
   const navigate = useNavigate()
-  const isEmployment = category === 'Employment'
 
   return (
     <div className="bg-navy-700 border border-white/5 rounded-lg overflow-hidden">
@@ -143,17 +53,6 @@ function CategoryCard({ category, contracts, isOpen, onToggle }) {
             className="overflow-hidden"
           >
             <div className="border-t border-white/5 p-5 space-y-4">
-              {/* Employment Consistency Checker */}
-              {isEmployment && contracts.length >= 1 && (
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users size={14} className="text-bronze" />
-                    <p className="text-xs uppercase tracking-luxury text-bronze">Employment Consistency Checker</p>
-                  </div>
-                  <ConsistencyChecker contracts={contracts} />
-                </div>
-              )}
-
               {/* Contract List */}
               <div className="space-y-2">
                 {contracts.length === 0 ? (

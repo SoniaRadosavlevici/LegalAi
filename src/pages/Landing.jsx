@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
 import Button from '../components/ui/Button'
-import { Scale, Shield, Globe, FileText, Users, Zap, ArrowRight, Check } from '../components/icons/Icons'
+import { Scale, Shield, Globe, FileText, Zap, ArrowRight, Check } from '../components/icons/Icons'
 
 const features = [
   {
@@ -25,11 +25,6 @@ const features = [
     icon: <Shield size={24} />,
     title: 'Secure Storage',
     desc: 'Contracts stored securely and organized by category. Access your entire library anytime, anywhere.',
-  },
-  {
-    icon: <Users size={24} />,
-    title: 'Employment Consistency',
-    desc: 'Compare employment contracts side-by-side and flag discrepancies in salary bands, notice periods, and benefits.',
   },
   {
     icon: <FileText size={24} />,
