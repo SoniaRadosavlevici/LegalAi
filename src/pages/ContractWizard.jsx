@@ -544,6 +544,14 @@ export default function ContractWizard() {
             </Button>
           </div>
         )}
+
+        <iframe
+          src="https://legal-ai-khaki-eight.vercel.app"
+          width="100%"
+          height="700px"
+          style={{ border: "none" }}
+          title="LegalAI Bot"
+        />
       </div>
     </div>
   )
