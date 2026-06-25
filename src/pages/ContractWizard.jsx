@@ -496,14 +496,23 @@ export default function ContractWizard() {
                   </div>
                 )}
 
-                <div className={`relative bg-navy-700 border border-white/5 rounded-lg p-6 md:p-8 mb-6
-                  ${profile?.plan === 'free' ? 'contract-watermark' : ''}`}
-                  onCopy={profile?.plan === 'free' ? e => e.preventDefault() : undefined}
-                >
-                  <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed contract-content">
-                    {generatedContent}
-                  </pre>
-                </div>
+                {profile?.plan === 'free' ? (
+                  <div style={{ height: '400px', overflowY: 'scroll', userSelect: 'none' }} className="mb-6">
+                    <div className="relative bg-navy-700 border border-white/5 rounded-lg p-6 md:p-8 contract-watermark"
+                      onCopy={e => e.preventDefault()}
+                    >
+                      <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed contract-content">
+                        {generatedContent}
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative bg-navy-700 border border-white/5 rounded-lg p-6 md:p-8 mb-6">
+                    <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed contract-content">
+                      {generatedContent}
+                    </pre>
+                  </div>
+                )}
 
                 {profile?.plan === 'free' && (
                   <div className="border border-bronze/20 bg-bronze/5 rounded-lg p-4 mb-6 flex items-start gap-3">
